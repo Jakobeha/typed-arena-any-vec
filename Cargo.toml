@@ -1,22 +1,31 @@
 [package]
-name = "typed-arena"
-version = "2.0.1"
-authors = ["Simon Sapin <simon.sapin@exyr.org>", "Nick Fitzgerald <fitzgen@gmail.com>"]
+name = "typed-arena-any-vec"
+version = "0.1.0"
+authors = ["Simon Sapin <simon.sapin@exyr.org>", "Nick Fitzgerald <fitzgen@gmail.com>", "Jakob Hain <jakobeha@fastmail.com>"]
 license = "MIT"
-description = "The arena, a fast but limited type of allocator"
-documentation = "https://docs.rs/typed-arena"
-repository = "https://github.com/SimonSapin/rust-typed-arena"
+description = "typed-arena (typed arena allocator) but it can use arbitrary vec backing"
+documentation = "https://docs.rs/typed-arena-any-vec"
+repository = "https://github.com/Jakobeha/typed-arena-any-vec"
 categories = ["memory-management", "no-std"]
-keywords = ["arena"]
+keywords = ["arena", "no-alloc"]
 readme = "./README.md"
 
 [lib]
-name = "typed_arena"
+name = "typed_arena_any_vec"
 path = "src/lib.rs"
 
 [features]
 default = ["std"]
+frozenvec = ["stable_deref_trait"]
+arrayvec = ["dep:arrayvec", "transmute"]
+slicevec = ["dep:slicevec", "transmute"]
 std = []
+
+[dependencies]
+stable_deref_trait = { version = "1.2.0", optional = true }
+arrayvec = { version = "0.7.1", optional = true }
+slicevec = { version = "0.1.1", optional = true }
+transmute = {version = "0.1.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

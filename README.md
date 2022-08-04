@@ -1,35 +1,44 @@
-# `typed-arena`
+# `typed-arena-any-vec`
 
-[![](https://docs.rs/typed-arena/badge.svg)](https://docs.rs/typed-arena/)
-[![](https://img.shields.io/crates/v/typed-arena.svg)](https://crates.io/crates/typed-arena)
-[![](https://img.shields.io/crates/d/typed-arena.svg)](https://crates.io/crates/typed-arena)
-[![Travis CI Build Status](https://travis-ci.org/SimonSapin/rust-typed-arena.svg?branch=master)](https://travis-ci.org/SimonSapin/typed-arena)
+[![](https://docs.rs/typed-arena/badge.svg)](https://docs.rs/typed-arena-any-vec/)
+[![](https://img.shields.io/crates/v/typed-arena-any-vec.svg)](https://crates.io/crates/typed-arena-any-vec)
+[![](https://img.shields.io/crates/d/typed-arena-any-vec.svg)](https://crates.io/crates/typed-arena-any-vec)
 
-**A fast (but limited) allocation arena for values of a single type.**
+**[typed-arena](https://docs.rs/typed-arena)** but supports any type of `Vec` backing, including [`SmallVec`](https://docs.rs/smallvec), [`ArrayVec`](https://docs.rs/arrayvec), and [`SliceVec`](https://docs.rs/slicevec). This means that you can create areans on data which you are mutably borrowing or data which is not stored on the heap.
 
-Allocated objects are destroyed all at once, when the arena itself is destroyed.
-There is no deallocation of individual objects while the arena itself is still
-alive. The flipside is that allocation is fast: typically just a vector push.
+Do note that if you're putting arenas on the stack, make sure that they're small, as the stack doesn't have much memory.
 
-There is also a method `into_vec()` to recover ownership of allocated objects
-when the arena is no longer required, instead of destroying everything.
+## `GrowVec`
 
-## Example
+The backing type is a `GrowVec` provided in this module. This vector only needs to support insertion, as allocated objects are only destroyed all at once when the vec itself is dropped.
+
+`GrowVec` is implemented for these external crates. To use, add the crate's name as a feature:
+
+- [`smallvec`](https://docs.rs/smallvec)
+- [`arrayvec`](https://docs.rs/arrayvec)
+- [`slicevec`](https://docs.rs/slicevec)
+
+If you have another external trait you want `GrowVec` to support, create a PR.
+
+## Examples (from typed-arena)
 
 ```rust
-use typed_arena::Arena;
+use typed_arena_any_vec::Arena;
+use arrayvec::ArrayVec;
 
 struct Monster {
     level: u32,
 }
 
-let monsters = Arena::new();
+fn fun() {
+    let monsters = Arena::new(ArrayVec::<Monster, 4>::new());
 
-let goku = monsters.alloc(Monster { level: 9001 });
-assert!(goku.level > 9000);
+    let goku = monsters.alloc(Monster { level: 9001 });
+    assert!(goku.level > 9000).unwrap();
+}
 ```
 
-## Safe Cycles
+### Safe Cycles
 
 All allocated objects get the same lifetime, so you can safely create cycles
 between them. This can be useful for certain data structures, such as graphs
@@ -37,35 +46,22 @@ and trees with parent pointers.
 
 ```rust
 use std::cell::Cell;
-use typed_arena::Arena;
+use typed_arena_any_vec::Arena;
+use slicevec::SliceVec;
 
 struct CycleParticipant<'a> {
     other: Cell<Option<&'a CycleParticipant<'a>>>,
 }
 
-let arena = Arena::new();
+struct CapacityError;
 
-let a = arena.alloc(CycleParticipant { other: Cell::new(None) });
-let b = arena.alloc(CycleParticipant { other: Cell::new(None) });
+fn fun(backing: &mut [CycleParticipant<'_>]) -> Result<(), CapacityError> {
+    let arena = Arena::new(SliceVec::new(backing));
 
-a.other.set(Some(b));
-b.other.set(Some(a));
+    let a = arena.alloc(CycleParticipant { other: Cell::new(None) }).map_err(|_| CapacityError);
+    let b = arena.alloc(CycleParticipant { other: Cell::new(None) }).map_err(|_| CapacityError);
+
+    a.other.set(Some(b));
+    b.other.set(Some(a));
+}
 ```
-
-## Alternatives
-
-### Need to allocate many different types of values?
-
-Use multiple arenas if you have only a couple different types or try
-[`bumpalo`](https://crates.io/crates/bumpalo), which is a bump-allocation arena
-can allocate heterogenous types of values.
-
-### Want allocation to return identifiers instead of references and dealing with references and lifetimes everywhere?
-
-Check out [`id-arena`](https://crates.io/crates/id-arena) or
-[`generational-arena`](https://crates.io/crates/generational-arena).
-
-### Need to deallocate individual objects at a time?
-
-Check out [`generational-arena`](https://crates.io/crates/generational-arena)
-for an arena-style crate or look for a more traditional allocator.
